@@ -9,6 +9,7 @@ import joblib  # 用于加载标准化器
 # 创建 FastAPI 实例
 app = FastAPI(title="TCN Predictor API", version="1.0")
 
+
 # 启动命令：
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
@@ -66,8 +67,8 @@ class TCNPredictor:
         # 构造返回结果
         time_steps = np.arange(1, self.prediction_steps + 1)
         return {
-            "temperature": {f"t+{t*2}s": float(prediction[0, t - 1, 0]) for t in time_steps},
-            "moisture": {f"t+{t*2}s": float(prediction[0, t - 1, 1]) for t in time_steps}
+            "temperature": {f"t+{t * 2}s": float(prediction[0, t - 1, 0]) for t in time_steps},
+            "moisture": {f"t+{t * 2}s": float(prediction[0, t - 1, 1]) for t in time_steps}
         }
 
     def _prepare_input(self, input_data):
@@ -200,6 +201,7 @@ async def predict_temperature_and_moisture(request: PredictionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"服务器错误: {str(e)}")
 
+
 @app.post("/optimize_parameters", summary="使用PSO优化加水和加汽参数")
 async def optimize_parameters(request: PredictionRequest, target_temp: float, target_humidity: float):
     try:
@@ -210,7 +212,11 @@ async def optimize_parameters(request: PredictionRequest, target_temp: float, ta
         optimization_result = predictor.optimize_parameters(
             input_data=input_df,
             target_temp=target_temp,
-            target_humidity=target_humidity
+            target_humidity=target_humidity,
+            steam_bounds=(30, 70),  # 更合理的参数范围
+            water_bounds=(10, 40),
+            num_particles=3,
+            max_iter=5
         )
 
         return {"status": "success", "optimized_parameters": optimization_result}
@@ -218,8 +224,6 @@ async def optimize_parameters(request: PredictionRequest, target_temp: float, ta
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"服务器错误: {str(e)}")
-
-
 
 # 启动命令：
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
