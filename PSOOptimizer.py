@@ -1,18 +1,13 @@
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import List, Dict
+from copy import deepcopy
 from tensorflow.keras.models import load_model
 import joblib  # 用于加载标准化器
 
-# 创建 FastAPI 实例
-app = FastAPI(title="TCN Predictor API", version="1.0")
+import numpy as np
+import pandas as pd
+from copy import deepcopy
 
-# 启动命令：
-# uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-# http://127.0.0.1:8000/docs#/
 
 class TCNPredictor:
     def __init__(self, model_path, scaler_features_path, scaler_labels_path):
@@ -172,54 +167,18 @@ class TCNPredictor:
         }
 
 
-# 加载预测器
-predictor = TCNPredictor(
-    model_path="optimized_tcn_model.h5",
-    scaler_features_path="scaler_features.pkl",
-    scaler_labels_path="scaler_labels.pkl"
+# 使用示例
+predictor = TCNPredictor("optimized_tcn_model.h5", "scaler_features.pkl", "scaler_labels.pkl")
+input_140 = pd.read_csv("input_data.csv")  # 140时间步数据
+
+result = predictor.optimize_parameters(
+    input_data=input_140,
+    target_temp=35.0,
+    target_humidity=20.0,
+    steam_bounds=(30, 70),  # 更合理的参数范围
+    water_bounds=(10, 40),
+    num_particles=30,
+    max_iter=100
 )
 
-
-# 定义请求体格式
-class PredictionRequest(BaseModel):
-    input_data: List[Dict[str, float]]  # JSON 数组，每个元素是包含 7 个特征的字典
-
-
-@app.post("/predict", summary="预测温度和湿度")
-async def predict_temperature_and_moisture(request: PredictionRequest):
-    try:
-        # 将 JSON 转换为 DataFrame
-        input_df = pd.DataFrame(request.input_data)
-
-        # 进行预测
-        prediction_result = predictor.predict(input_df)
-
-        return {"status": "success", "predictions": prediction_result}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"服务器错误: {str(e)}")
-
-@app.post("/optimize_parameters", summary="使用PSO优化加水和加汽参数")
-async def optimize_parameters(request: PredictionRequest, target_temp: float, target_humidity: float):
-    try:
-        # 将 JSON 转换为 DataFrame
-        input_df = pd.DataFrame(request.input_data)
-
-        # 进行参数优化
-        optimization_result = predictor.optimize_parameters(
-            input_data=input_df,
-            target_temp=target_temp,
-            target_humidity=target_humidity
-        )
-
-        return {"status": "success", "optimized_parameters": optimization_result}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"服务器错误: {str(e)}")
-
-
-
-# 启动命令：
-# uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+print(result)
