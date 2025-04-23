@@ -168,8 +168,8 @@ class TCNPredictor:
 
 
 # 使用示例
-predictor = TCNPredictor("optimized_tcn_model.h5", "scaler_features.pkl", "scaler_labels.pkl")
-input_140 = pd.read_csv("input_data.csv")  # 140时间步数据
+predictor = TCNPredictor("temp/optimized_tcn_model.h5", "temp/scaler_features.pkl", "temp/scaler_labels.pkl")
+input_140 = pd.read_csv("temp/input_data.csv")  # 140时间步数据
 
 result = predictor.optimize_parameters(
     input_data=input_140,

@@ -175,9 +175,9 @@ class TCNPredictor:
 
 # 加载预测器
 predictor = TCNPredictor(
-    model_path="optimized_tcn_model.h5",
-    scaler_features_path="scaler_features.pkl",
-    scaler_labels_path="scaler_labels.pkl"
+    model_path="temp/optimized_tcn_model.h5",
+    scaler_features_path="temp/scaler_features.pkl",
+    scaler_labels_path="temp/scaler_labels.pkl"
 )
 
 

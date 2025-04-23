@@ -69,9 +69,9 @@ class TCNPredictor:
 if __name__ == "__main__":
     # 初始化预测器（需要提前保存标准化器）
     predictor = TCNPredictor(
-        model_path="optimized_tcn_model.h5",
-        scaler_features_path="scaler_features.pkl",
-        scaler_labels_path="scaler_labels.pkl"
+        model_path="temp/optimized_tcn_model.h5",
+        scaler_features_path="temp/scaler_features.pkl",
+        scaler_labels_path="temp/scaler_labels.pkl"
     )
 
     # 模拟输入数据（应替换为实际数据）

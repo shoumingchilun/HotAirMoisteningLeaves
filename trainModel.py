@@ -9,19 +9,19 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
 
 # 数据集路径
-DATASET_DIR = "dataset2"
+DATASET_DIR = "dataset"
 data_files = sorted(os.listdir(DATASET_DIR))
 
 # 训练集和测试集划分
-train_files = data_files[:4]
-test_files = data_files[4:]
+train_files = data_files[:15]
+test_files = data_files[15:]
 
 # 超参数
 sequence_length = 150  # 输入序列长度
-prediction_steps = 1  # 预测未来两分钟的时间步数（假设每2秒1个样本）
-features = ['AT', 'AP', 'AH',
-            'AFDP', 'GTEP', 'TIT', 'TAT','TEY','CDP']
-labels = ['CO', 'NOX']
+prediction_steps = 60  # 预测未来两分钟的时间步数（假设每2秒1个样本）
+features = ['material_flow', 'entry_temp', 'entry_moisture',
+            'steam_valve', 'water_addition', 'env_temp', 'env_humidity']
+labels = ['out_temp', 'out_moisture']
 
 # 初始化标准化器
 scaler_features = StandardScaler()
@@ -134,5 +134,5 @@ plt.tight_layout()
 plt.show()
 
 # 保存模型
-model.save("/temp/Gas_model.h5")
-print("Model saved as Gas_model.h5")
+model.save("/temp/optimized_tcn_model.h5")
+print("Model saved as optimized_tcn_model.h5")
