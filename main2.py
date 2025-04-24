@@ -17,9 +17,9 @@ SCALER_FEATURES_PATH = "output2/scaler_features.pkl"
 SCALER_LABELS_PATH = "output2/scaler_labels.pkl"
 SEQUENCE_LENGTH = 300 # 必须与训练最佳模型时使用的长度一致
 PREDICTION_STEPS = 1 # 模型设计为预测下一步
-FEATURES = ['AT', 'AP', 'AH', 'AFDP', 'GTEP', 'TIT', 'TAT', 'TEY', 'CDP']
-OPTIMIZABLE_FEATURES = ['TIT', 'TEY', 'CDP', 'AT', 'AFDP'] # Features PSO will optimize
-LABELS = ['CO', 'NOX']
+FEATURES = ['circulationFanFreq', 'inletMoisture', 'tobaccoFlow', 'steamValveOpening', 'envHumidity', 'hotAirTemp', 'dryHeadWeight', 'steamPressure', 'exhaustFanFreq']
+OPTIMIZABLE_FEATURES = ['hotAirTemp', 'steamPressure', 'exhaustFanFreq', 'circulationFanFreq', 'steamValveOpening'] # Features PSO will optimize
+LABELS = ['actualHotAirTemp', 'outletMoistureFeedback']
 FEATURE_DIM = len(FEATURES)
 LABEL_DIM = len(LABELS)
 
@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 # --- FastAPI App ---
 app = FastAPI(
-    title="Gas Turbine Emission Predictor & Optimizer API",
-    description="使用TCN模型预测并使用PSO优化燃气轮机输入参数以达到目标排放",
+    title="热风润叶 Predictor & Optimizer API",
+    description="使用TCN模型预测并使用PSO优化热风润叶机输入参数以达到目标输出",
     version="1.1.0"
 )
 
@@ -136,8 +136,8 @@ class GasTurbinePredictor:
 
         # 7. Format result
         result = {
-            self.labels[0]: float(prediction_inv[0, 0]), # CO
-            self.labels[1]: float(prediction_inv[0, 1])  # NOx
+            self.labels[0]: float(prediction_inv[0, 0]), # actualHotAirTemp
+            self.labels[1]: float(prediction_inv[0, 1])  # outletMoistureFeedback
         }
         logger.info(f"Prediction successful: {result}")
         return result
@@ -175,8 +175,8 @@ class GasTurbinePredictor:
 
         # 5. Format result
         result = {
-            self.labels[0]: float(prediction_inv[0, 0]), # CO
-            self.labels[1]: float(prediction_inv[0, 1])  # NOx
+            self.labels[0]: float(prediction_inv[0, 0]), # actualHotAirTemp
+            self.labels[1]: float(prediction_inv[0, 1])  # outletMoistureFeedback
         }
         return result
 
@@ -198,8 +198,8 @@ class GasTurbinePredictor:
     # --- PSO Implementation ---
     def run_pso(self,
                 history_data: pd.DataFrame,
-                target_co: float,
-                target_nox: float,
+                wishedActualHotAirTemp: float,
+                wishedOutletMoistureFeedback: float,
                 horizon: int,
                 bounds: np.ndarray,
                 num_particles: int,
@@ -212,7 +212,7 @@ class GasTurbinePredictor:
                 ):
         """Runs the PSO algorithm."""
         start_time = time.time()
-        logger.info(f"Starting PSO optimization: target_co={target_co}, target_nox={target_nox}, horizon={horizon}")
+        logger.info(f"Starting PSO optimization: wished_actualHotAirTemp={wishedActualHotAirTemp}, wished_outletMoistureFeedback={wishedOutletMoistureFeedback}, horizon={horizon}")
         # ... (rest of PSO logging) ...
         logger.info(f"PSO Params: particles={num_particles}, max_iter={max_iter}, w={inertia_weight}, c1={cognitive_weight}, c2={social_weight}")
         logger.info(f"Parameter bounds:\n{pd.DataFrame(bounds, index=self.optimizable_features, columns=['min', 'max'])}")
@@ -236,8 +236,8 @@ class GasTurbinePredictor:
                 pred_co = predictions[self.labels[0]]
                 pred_nox = predictions[self.labels[1]]
 
-                error = (co_loss_weight * np.square(pred_co - target_co) +
-                         nox_loss_weight * np.square(pred_nox - target_nox))
+                error = (co_loss_weight * np.square(pred_co - wishedActualHotAirTemp) +
+                         nox_loss_weight * np.square(pred_nox - wishedOutletMoistureFeedback))
                 return error if np.isfinite(error) else np.inf
             except Exception as e:
                 logger.error(f"Error in fitness evaluation for particle {particle_params}: {e}", exc_info=False)
@@ -327,35 +327,35 @@ except (FileNotFoundError, RuntimeError) as e:
 
 # --- Pydantic Models ---
 class InputDataPoint(BaseModel): # Keep as is
-    AT: float = Field(..., example=15.0)
-    AP: float = Field(..., example=1013.0)
-    AH: float = Field(..., example=80.0)
-    AFDP: float = Field(..., example=3.5)
-    GTEP: float = Field(..., example=25.0)
-    TIT: float = Field(..., example=1050.0)
-    TAT: float = Field(..., example=550.0)
-    TEY: float = Field(..., example=110.0)
-    CDP: float = Field(..., example=12.0)
+    circulationFanFreq: float = Field(..., example=15.0)
+    inletMoisture: float = Field(..., example=1013.0)
+    tobaccoFlow: float = Field(..., example=80.0)
+    steamValveOpening: float = Field(..., example=3.5)
+    envHumidity: float = Field(..., example=25.0)
+    hotAirTemp: float = Field(..., example=1050.0)
+    dryHeadWeight: float = Field(..., example=550.0)
+    steamPressure: float = Field(..., example=110.0)
+    exhaustFanFreq: float = Field(..., example=12.0)
 
 class PredictionRequest(BaseModel): # For /predict endpoint
     input_data: List[InputDataPoint] = Field(..., description=f"包含至少 {SEQUENCE_LENGTH} 个时间步的特征数据列表")
 
 # Models for /optimize endpoint (Keep PsoParams, ParameterBounds, OptimizationRequest as in the previous PSO version)
 class PsoParams(BaseModel):
-    target_co: float = Field(..., example=2.5, description="目标 CO 排放值")
-    target_nox: float = Field(..., example=70.0, description="目标 NOx 排放值")
-    num_particles: int = Field(20, gt=0, description="粒子群大小")
-    max_iter: int = Field(50, gt=0, description="最大迭代次数")
-    inertia_weight: float = Field(0.5, ge=0, description="惯性权重 (w)")
-    cognitive_weight: float = Field(0.8, ge=0, description="认知权重 (c1)")
-    social_weight: float = Field(0.8, ge=0, description="社会权重 (c2)")
+    wishedActualHotAirTemp: float = Field(..., example=2.5)
+    wishedOutletMoistureFeedback: float = Field(..., example=70.0)
+    numParticles: int = Field(20, gt=0, description="粒子群大小")
+    maxIter: int = Field(50, gt=0, description="最大迭代次数")
+    inertiaWeight: float = Field(0.5, ge=0, description="惯性权重 (w)")
+    cognitiveWeight: float = Field(0.8, ge=0, description="认知权重 (c1)")
+    socialWeight: float = Field(0.8, ge=0, description="社会权重 (c2)")
 
 class ParameterBounds(BaseModel):
-    TIT: Tuple[float, float] = Field((1000, 1100), description="涡轮进口温度 (min, max)")
-    TEY: Tuple[float, float] = Field((100, 150), description="涡轮能量输出 (min, max)")
-    CDP: Tuple[float, float] = Field((10, 15), description="压缩机出口压力 (min, max)")
-    AT: Tuple[float, float] = Field((0, 30), description="环境温度 (min, max) - Note: Adjust if not controllable")
-    AFDP: Tuple[float, float] = Field((2, 5), description="空滤压差 (min, max) - Note: Adjust if not state/controllable")
+    hotAirTemp: Tuple[float, float] = Field((1000, 1100), description="涡轮进口温度 (min, max)")
+    steamPressure: Tuple[float, float] = Field((100, 150), description="涡轮能量输出 (min, max)")
+    exhaustFanFreq: Tuple[float, float] = Field((10, 15), description="压缩机出口压力 (min, max)")
+    circulationFanFreq: Tuple[float, float] = Field((0, 30), description="环境温度 (min, max) - Note: Adjust if not controllable")
+    steamValveOpening: Tuple[float, float] = Field((2, 5), description="空滤压差 (min, max) - Note: Adjust if not state/controllable")
 
 class OptimizationRequest(BaseModel):
     history_data: List[InputDataPoint] = Field(..., description=f"至少包含 {SEQUENCE_LENGTH} 个时间步的历史特征数据")
@@ -431,11 +431,11 @@ async def optimize_parameters_endpoint(request: OptimizationRequest = Body(...))
 
         # 2. Prepare bounds
         bounds_list = [
-            request.parameter_bounds.TIT,
-            request.parameter_bounds.TEY,
-            request.parameter_bounds.CDP,
-            request.parameter_bounds.AT,
-            request.parameter_bounds.AFDP
+            request.parameter_bounds.hotAirTemp,
+            request.parameter_bounds.steamPressure,
+            request.parameter_bounds.exhaustFanFreq,
+            request.parameter_bounds.circulationFanFreq,
+            request.parameter_bounds.steamValveOpening
         ]
         bounds_array = np.array(bounds_list)
         if bounds_array.shape != (predictor.optimizable_dim, 2):
@@ -444,15 +444,15 @@ async def optimize_parameters_endpoint(request: OptimizationRequest = Body(...))
         # 3. Run PSO
         optimization_result = predictor.run_pso(
             history_data=history_df,
-            target_co=request.hyper_param.target_co,
-            target_nox=request.hyper_param.target_nox,
+            wishedActualHotAirTemp=request.hyper_param.wishedActualHotAirTemp,
+            wishedOutletMoistureFeedback=request.hyper_param.wishedOutletMoistureFeedback,
             horizon=request.optimization_horizon,
             bounds=bounds_array,
-            num_particles=request.hyper_param.num_particles,
-            max_iter=request.hyper_param.max_iter,
-            inertia_weight=request.hyper_param.inertia_weight,
-            cognitive_weight=request.hyper_param.cognitive_weight,
-            social_weight=request.hyper_param.social_weight,
+            num_particles=request.hyper_param.numParticles,
+            max_iter=request.hyper_param.maxIter,
+            inertia_weight=request.hyper_param.inertiaWeight,
+            cognitive_weight=request.hyper_param.cognitiveWeight,
+            social_weight=request.hyper_param.socialWeight,
             co_loss_weight=request.co_loss_weight,
             nox_loss_weight=request.nox_loss_weight
         )

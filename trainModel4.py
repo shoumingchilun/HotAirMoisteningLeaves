@@ -28,8 +28,8 @@ test_files = data_files[4:]
 # --- 超参数 ---
 sequence_length = 300  # 输入序列长度 T
 prediction_steps = 1  # 预测未来 N 步 (这里是预测紧接着的下一步)
-features = ['AT', 'AP', 'AH', 'AFDP', 'GTEP', 'TIT', 'TAT', 'TEY', 'CDP']
-labels = ['CO', 'NOX']
+features = ['circulationFanFreq', 'inletMoisture', 'tobaccoFlow', 'steamValveOpening', 'envHumidity', 'hotAirTemp', 'dryHeadWeight', 'steamPressure', 'exhaustFanFreq']
+labels = ['actualHotAirTemp', 'outletMoistureFeedback']
 feature_dim = len(features)
 label_dim = len(labels)
 
